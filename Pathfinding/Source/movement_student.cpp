@@ -9,24 +9,82 @@
  */
 
 #include <Stdafx.h>
-
+#include <queue>
 bool Movement::ComputePath( int r, int c, bool newRequest )
 {
 	m_goal = g_terrain.GetCoordinates( r, c );
 	m_movementMode = MOVEMENT_WAYPOINT_LIST;
+	
+	struct Node
+	{
+		int x;
+		int y;
+		float cost;
+		float given;
+		enum
+		{
+			none,
+			open,
+			close
+		} onList;
+
+		bool operator<(const Node n) const {
+			return this->cost > n.cost;
+		}
+	};
+
+	std::priority_queue<Node> open_list;
 
 	// project 2: change this flag to true
 	bool useAStar = false;
 
 	if( useAStar )
 	{
+		int curR, curC;
+		D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
+		g_terrain.GetRowColumn(&cur, &curR, &curC);
+
+		m_waypointList.clear();
+		m_waypointList.push_back(cur);
 		///////////////////////////////////////////////////////////////////////////////////////////////////
 		//INSERT YOUR A* CODE HERE
 		//1. You should probably make your own A* class.
 		//2. You will need to make this function remember the current progress if it preemptively exits.
 		//3. Return "true" if the path is complete, otherwise "false".
 		///////////////////////////////////////////////////////////////////////////////////////////////////
+		while ()
+		{
+			if (curR != r || curC != c) { return true; }
 
+			if (curC == c || (curR != r && rand() % 2 == 0))
+			{	//Go in row direction
+				int last = curR;
+				if (curR < r) { curR++; }
+				else { curR--; }
+
+				if (g_terrain.IsWall(curR, curC))
+				{
+					curR = last;
+					continue;
+				}
+			}
+			else
+			{	//Go in column direction
+				int last = curC;
+				if (curC < c) { curC++; }
+				else { curC--; }
+
+				if (g_terrain.IsWall(curR, curC))
+				{
+					curC = last;
+					continue;
+				}
+			}
+
+			D3DXVECTOR3 spot = g_terrain.GetCoordinates(curR, curC);
+			m_waypointList.push_back(spot);
+			g_terrain.SetColor(curR, curC, DEBUG_COLOR_YELLOW);
+		}
 		return false;
 
 	}
