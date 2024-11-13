@@ -53,7 +53,8 @@ public:
 #endif
 
 	void SetHeuristicWeight(float value)					{ m_heuristicWeight = value; }
-	float GetHeuristicWeight() const                        { return m_heuristicWeight; }
+	float GetHeuristicWeight() const                        { 
+		return m_heuristicWeight; }
 	void SetHeuristicCalc(int value)						{ m_heuristicCalc = value; }
 	int GetHeuristicCalc() const                            { return m_heuristicCalc; }
 	void SetSmoothPath(bool enable)						{ m_smooth = enable; }
@@ -71,6 +72,38 @@ public:
 	void SetDebugDraw(bool enable)							{ m_debugDraw = enable; }
 	bool GetDebugDraw() const								{ return m_debugDraw; }
 
+	// 8방향을 나타내는 방향 벡터
+	const std::vector<D3DXVECTOR2> directions = {
+		{0, 1},   // 상
+		{0, -1},  // 하
+		{1, 0},   // 우
+		{-1, 0},  // 좌
+		{1, 1},   // 오른쪽 위 대각선
+		{1, -1},  // 오른쪽 아래 대각선
+		{-1, 1},  // 왼쪽 위 대각선
+		{-1, -1}  // 왼쪽 아래 대각선
+	};
+
+	struct Node
+	{
+		int x;
+		int y;
+		float cost; // f(x)
+		float given; // g(x)
+		enum STATUS
+		{
+			none,
+			open,
+			close,
+			obstacle
+		} onList;
+		Node* parent = nullptr;
+		//if this value is -1, this node no have parent node. that is this node is root
+		bool operator <(const Node& other) const {
+			return cost < other.cost; // 우선순위 큐에서 최소 비용을 먼저 탐색
+		}
+	};
+
 protected:
 
 	GameObject* m_owner;
@@ -82,7 +115,7 @@ protected:
 	int m_extracredit;
 	bool m_aStarUsesAnalysis;
 	float m_heuristicWeight;
-	int m_heuristicCalc;
+	int m_heuristicCalc; // 0.euclidean 1.octile 2.chebyshev 3.manhattan 
 	MovementMode m_movementMode;
 
 	D3DXVECTOR3 m_target;
@@ -95,5 +128,9 @@ protected:
 
 	bool m_debugDraw;
 
+	bool IsTileInvaild(int x, int y, int m_width);
+	std::string GetPosKey(int x, int y);
+	float GetHeuristicResult(int c_x, int c_y, int goal_x, int goal_y);
+	float GetCost(float g, float h, float w);
 	bool ComputePath(int r, int c, bool newRequest);
 };
