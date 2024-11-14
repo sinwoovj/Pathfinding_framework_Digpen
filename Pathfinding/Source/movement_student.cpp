@@ -130,35 +130,15 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 				if (dir.x != 0 && dir.y != 0) {  // 대각선인 경우
 					diagonal = true;
 
-					if (IsTileInvaild(parentNode->x, newY, m_width))
+					if (IsTileInvaild(parentNode->x, newY, m_width) || IsTileInvaild(newX, parentNode->y, m_width))
 					{
-						if (IsTileInvaild(newX, parentNode->y, m_width))
-						{
-							continue;
-						}
-						else
-						{
-							if (g_terrain.IsWall(newX, parentNode->y))
-							{
-								continue;
-							}
-						}
+						continue;
 					}
 					else
 					{
-						if (g_terrain.IsWall(parentNode->x, newY))
+						if (g_terrain.IsWall(newX, parentNode->y) || g_terrain.IsWall(parentNode->x, newY))
 						{
-							if (IsTileInvaild(newX, parentNode->y, m_width))
-							{
-								continue;
-							}
-							else
-							{
-								if (g_terrain.IsWall(newX, parentNode->y))
-								{
-									continue;
-								}
-							}
+							continue;
 						}
 					}
 				}
@@ -182,7 +162,11 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 			
 			count++;
 		}
-
+		if (open_list.empty()) // not find path
+		{
+			m_waypointList.push_back(cur);
+			return true;
+		}
 		Node* shortestPath = open_list.top();
 		while (shortestPath->parent != nullptr)
 		{
