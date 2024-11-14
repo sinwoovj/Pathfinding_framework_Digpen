@@ -69,39 +69,51 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 	m_goal = g_terrain.GetCoordinates(r, c);
 	m_movementMode = MOVEMENT_WAYPOINT_LIST;
 	int m_width = g_terrain.GetWidth();
-	static std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
-	static std::unordered_set<Node*> close_list;
-	static std::unordered_set<std::string> visited; // 방문한 노드 추적
-	float given, heuristic, cost;
 	int curR, curC;
 	D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
 	g_terrain.GetRowColumn(&cur, &curR, &curC);
+
+	
 	bool useAStar = true;
 
-	//Initialization
-	if (newRequest)
-	{
-		int curR, curC;
-		D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
-		g_terrain.GetRowColumn(&cur, &curR, &curC);
-
-		m_waypointList.clear();
-		if (curR == r && curC == c)
-		{
-			m_waypointList.push_back(cur);
-			return true;
-		}
-
-		//Push Start Node onto the Open List
-		given = 0;
-		heuristic = GetHeuristicResult(curR, curC, r, c);
-		cost = GetCost(given, heuristic, GetHeuristicWeight());
-		open_list.push(new Node{ curR, curC, cost, given, Node::STATUS::open });
-		visited.insert(GetPosKey(curR, curC));
-	}
-	
 	if( useAStar )
 	{
+		//A* Initialization
+		static std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
+		static std::unordered_set<Node*> close_list;
+		static std::unordered_set<std::string> visited; // 방문한 노드 추적
+		float given, heuristic, cost;
+		if (newRequest)
+		{
+			m_waypointList.clear();
+			if (curR == r && curC == c)
+			{
+				m_waypointList.push_back(cur);
+				return true;
+			}
+
+			//Push Start Node onto the Open List
+			given = 0;
+			heuristic = GetHeuristicResult(curR, curC, r, c);
+
+			//delete Nodes
+			while (!open_list.empty())
+			{
+				delete open_list.top();
+				open_list.pop();
+			}
+			for (auto& it : close_list)
+			{
+				delete it;
+			}
+			close_list.clear();
+			visited.clear();
+
+			cost = GetCost(given, heuristic, GetHeuristicWeight());
+			open_list.push(new Node{ curR, curC, cost, given, Node::STATUS::open });
+			visited.insert(GetPosKey(curR, curC));
+		}
+
 		//While (Open List is not empty) {
 		while (!open_list.empty())
 		{
@@ -154,7 +166,8 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 			//	If child node is on Open or Closed List, AND this new one is cheaper,
 			//	then take the old expensive one off both lists and put this new cheaper
 			//	one on the Open List.
-			g_terrain.SetColor(parentNode->x, parentNode->y, DEBUG_COLOR_YELLOW);
+			if(!g_terrain.IsWall(parentNode->x, parentNode->y))
+				g_terrain.SetColor(parentNode->x, parentNode->y, DEBUG_COLOR_YELLOW);
 			close_list.insert(parentNode);
 			if (GetSingleStep())
 				return false;
