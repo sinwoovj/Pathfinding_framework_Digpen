@@ -73,7 +73,41 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 	D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
 	g_terrain.GetRowColumn(&cur, &curR, &curC);
 
-	
+	if (GetStraightlinePath()) // Straight
+	{
+		static bool canStraight = false;
+		if (newRequest)
+		{
+			canStraight = true;
+		}
+		// 벽 없으면 true 있으면 false
+		if (canStraight)
+		{
+			int max_x = curR <= r ? r : curR;
+			int max_y = curC <= c ? c : curC;
+			int min_x = curR >= r ? r : curR;
+			int min_y = curC >= c ? c : curC;
+			for (int x = min_x; x <= max_x; x++)
+			{
+				for (int y = min_y; y <= max_y; y++)
+				{
+					if (g_terrain.IsWall(x, y))
+					{
+						canStraight = false;
+						goto Straight;
+					}
+				}
+			}
+			//벽이 없어서 straight 가능
+			m_waypointList.clear();
+			m_waypointList.push_back(cur);
+			if (curR != r || curC != c)
+				m_waypointList.push_back(m_goal);
+			return true;
+		}
+	Straight:;
+	}
+
 	bool useAStar = true;
 
 	if( useAStar )
