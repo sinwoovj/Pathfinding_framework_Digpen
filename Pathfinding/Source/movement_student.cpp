@@ -73,15 +73,16 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 	D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
 	g_terrain.GetRowColumn(&cur, &curR, &curC);
 
-	if (GetStraightlinePath()) // Straight
+	//A* Initialization Variable
+	static std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
+	static std::unordered_set<Node*> close_list;
+	static std::unordered_set<std::string> visited; // 방문한 노드 추적
+	float given, heuristic, cost;
+
+	//Initialization
+	if (newRequest)
 	{
-		static bool canStraight = false;
-		if (newRequest)
-		{
-			canStraight = true;
-		}
-		// 벽 없으면 true 있으면 false
-		if (canStraight)
+		if (GetStraightlinePath()) // Straight
 		{
 			int max_x = curR <= r ? r : curR;
 			int max_y = curC <= c ? c : curC;
@@ -93,8 +94,7 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 				{
 					if (g_terrain.IsWall(x, y))
 					{
-						canStraight = false;
-						goto Straight;
+						goto OutStraight;
 					}
 				}
 			}
@@ -105,48 +105,42 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 				m_waypointList.push_back(m_goal);
 			return true;
 		}
-	Straight:;
+	OutStraight:
+		m_waypointList.clear();
+		if (curR == r && curC == c)
+		{
+			m_waypointList.push_back(cur);
+			return true;
+		}
+
+		//Push Start Node onto the Open List
+		given = 0;
+		heuristic = GetHeuristicResult(curR, curC, r, c);
+
+		//delete Nodes
+		while (!open_list.empty())
+		{
+			delete open_list.top();
+			open_list.pop();
+		}
+		for (auto& it : close_list)
+		{
+			delete it;
+		}
+		close_list.clear();
+		visited.clear();
+
+		cost = GetCost(given, heuristic, GetHeuristicWeight());
+		open_list.push(new Node{ curR, curC, cost, given, Node::STATUS::open });
+		visited.insert(GetPosKey(curR, curC));
 	}
+	
 
 	bool useAStar = true;
 
 	if( useAStar )
 	{
-		//A* Initialization
-		static std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
-		static std::unordered_set<Node*> close_list;
-		static std::unordered_set<std::string> visited; // 방문한 노드 추적
-		float given, heuristic, cost;
-		if (newRequest)
-		{
-			m_waypointList.clear();
-			if (curR == r && curC == c)
-			{
-				m_waypointList.push_back(cur);
-				return true;
-			}
-
-			//Push Start Node onto the Open List
-			given = 0;
-			heuristic = GetHeuristicResult(curR, curC, r, c);
-
-			//delete Nodes
-			while (!open_list.empty())
-			{
-				delete open_list.top();
-				open_list.pop();
-			}
-			for (auto& it : close_list)
-			{
-				delete it;
-			}
-			close_list.clear();
-			visited.clear();
-
-			cost = GetCost(given, heuristic, GetHeuristicWeight());
-			open_list.push(new Node{ curR, curC, cost, given, Node::STATUS::open });
-			visited.insert(GetPosKey(curR, curC));
-		}
+		
 
 		//While (Open List is not empty) {
 		while (!open_list.empty())
