@@ -66,18 +66,21 @@ struct CompareNode {
 
 bool Movement::ComputePath( int r, int c, bool newRequest )
 {
-	m_goal = g_terrain.GetCoordinates( r, c );
+	m_goal = g_terrain.GetCoordinates(r, c);
 	m_movementMode = MOVEMENT_WAYPOINT_LIST;
 	int m_width = g_terrain.GetWidth();
-	std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
-	std::unordered_set<Node*> close_list;
-	std::unordered_set<std::string> visited; // 방문한 노드 추적
-	// project 2: change this flag to true
+	static std::priority_queue<Node*, std::vector<Node*>, CompareNode> open_list;
+	static std::unordered_set<Node*> close_list;
+	static std::unordered_set<std::string> visited; // 방문한 노드 추적
+	float given, heuristic, cost;
+	int curR, curC;
+	D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
+	g_terrain.GetRowColumn(&cur, &curR, &curC);
 	bool useAStar = true;
 
-	if( useAStar )
+	//Initialization
+	if (newRequest)
 	{
-		int count = 0;
 		int curR, curC;
 		D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
 		g_terrain.GetRowColumn(&cur, &curR, &curC);
@@ -88,26 +91,20 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 			m_waypointList.push_back(cur);
 			return true;
 		}
-		//m_waypointList.push_back(cur);
-		///////////////////////////////////////////////////////////////////////////////////////////////////
-		//INSERT YOUR A* CODE HERE
-		//1. You should probably make your own A* class.
-		//2. You will need to make this function remember the current progress if it preemptively exits.
-		//3. Return "true" if the path is complete, otherwise "false".
-		///////////////////////////////////////////////////////////////////////////////////////////////////
+
 		//Push Start Node onto the Open List
-		float given = 0;
-		float heuristic = GetHeuristicResult(curR, curC, r, c);
-		float cost = GetCost(given, heuristic, GetHeuristicWeight());
+		given = 0;
+		heuristic = GetHeuristicResult(curR, curC, r, c);
+		cost = GetCost(given, heuristic, GetHeuristicWeight());
 		open_list.push(new Node{ curR, curC, cost, given, Node::STATUS::open });
 		visited.insert(GetPosKey(curR, curC));
+	}
+	
+	if( useAStar )
+	{
 		//While (Open List is not empty) {
 		while (!open_list.empty())
 		{
-			/*if (count > 50000)
-			{
-				return true;
-			}*/
 			//If node is the Goal Node, then path found (RETURN “found”)
 			if (open_list.top()->x == r && open_list.top()->y == c) { 
 				break; 
@@ -159,15 +156,17 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 			//	one on the Open List.
 			g_terrain.SetColor(parentNode->x, parentNode->y, DEBUG_COLOR_YELLOW);
 			close_list.insert(parentNode);
-			
-			count++;
+			if (GetSingleStep())
+				return false;
 		}
+
 		if (open_list.empty()) // not find path
 		{
 			m_waypointList.push_back(cur);
 			return true;
 		}
 		Node* shortestPath = open_list.top();
+
 		while (shortestPath->parent != nullptr)
 		{
 			D3DXVECTOR3 spot = g_terrain.GetCoordinates(shortestPath->x, shortestPath->y);
@@ -192,11 +191,6 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 	}
 	else
 	{	
-		//Randomly meander toward goal (might get stuck at wall)
-		int curR, curC;
-		D3DXVECTOR3 cur = m_owner->GetBody().GetPos();
-		g_terrain.GetRowColumn( &cur, &curR, &curC );
-
 		m_waypointList.clear();
 		m_waypointList.push_back( cur );
 
