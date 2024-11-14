@@ -75,13 +75,7 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 
 	if (GetStraightlinePath()) // Straight
 	{
-		static bool canStraight = false;
 		if (newRequest)
-		{
-			canStraight = true;
-		}
-		// 벽 없으면 true 있으면 false
-		if (canStraight)
 		{
 			int max_x = curR <= r ? r : curR;
 			int max_y = curC <= c ? c : curC;
@@ -93,8 +87,7 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 				{
 					if (g_terrain.IsWall(x, y))
 					{
-						canStraight = false;
-						goto Straight;
+						return false;
 					}
 				}
 			}
@@ -105,7 +98,6 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 				m_waypointList.push_back(m_goal);
 			return true;
 		}
-	Straight:;
 	}
 
 	bool useAStar = true;
