@@ -196,6 +196,8 @@ void Movement::ClearWaypointList(void)
 	m_waypointList.clear();
 }
 
+
+
 void Movement::DrawDebugVisualization(IDirect3DDevice9* pd3dDevice, D3DXMATRIX* pViewProj)
 {
 	//Draw waypoints

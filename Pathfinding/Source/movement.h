@@ -128,6 +128,10 @@ protected:
 
 	bool m_debugDraw;
 
+	//인자 설명 : curR, curC 현재 Row, Column/ 결과 Row, Column/ 예외 방향 expDir(0 = default,1 = LU,2 = RU,3 = RD,4 = LD)/ 예외 Row, Column
+	bool CheckStraightLine(int curR, int curC, int resR, int resC, bool expDir = false, int expR = 0, int expC = 0);
+	void Rubberbanding(std::list<D3DXVECTOR3>& _coordList);
+	void Smoothing(std::list<D3DXVECTOR3>& _coordList);
 	bool IsTileInvaild(int x, int y, int m_width);
 	std::string GetPosKey(int x, int y);
 	float GetHeuristicResult(int c_x, int c_y, int goal_x, int goal_y);

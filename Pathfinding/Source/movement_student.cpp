@@ -15,7 +15,45 @@
 #include <string>
 #include <list>
 #include <algorithm>
+#include <functional>
 
+bool Movement::CheckStraightLine(int curR, int curC, int resR, int resC, bool expDir, int expR, int expC)
+{
+	auto checkWalls = [](int startX, int endX, int startY, int endY) {
+		if (startX > endX) std::swap(startX, endX);
+		if (startY > endY) std::swap(startY, endY);
+		for (int x = startX; x <= endX; x++)
+		{
+			for (int y = startY; y <= endY; y++)
+			{
+				if (g_terrain.IsWall(x, y))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	};
+
+	if (expDir)
+	{
+		// Check vertical line at expR
+		if (!checkWalls(expR, expR, curC, resC)) return false;
+
+		// Check horizontal line at expC
+		if (!checkWalls(curR, resR, expC, expC)) return false;
+
+		// Check area from expR to resR and expC to resC
+		if (!checkWalls(expR, resR, expC, resC)) return false;
+	}
+	else
+	{
+		// Check entire area from curR to resR and curC to resC
+		if (!checkWalls(curR, resR, curC, resC)) return false;
+	}
+
+	return true;
+}
 
 bool Movement::IsTileInvaild(int x, int y, int m_width)
 {
@@ -63,6 +101,104 @@ struct CompareNode {
 		return a->cost > b->cost; // Higher priority comes first
 	}
 };
+void Movement::Rubberbanding(std::list<D3DXVECTOR3>& _coordList)
+{
+	if (_coordList.size() < 3)
+		return;
+
+	std::list<D3DXVECTOR3>::iterator it = _coordList.begin();
+	std::list<D3DXVECTOR3>::iterator nodeIt[3];
+
+	for (int i = 0; i < 3; ++i)
+	{
+		nodeIt[i] = it++;
+	}
+
+	while (true)
+	{
+		int node[3][2] = {};
+		g_terrain.GetRowColumn(&(*nodeIt[0]), &node[0][0], &node[0][1]);
+		g_terrain.GetRowColumn(&(*nodeIt[1]), &node[1][0], &node[1][1]);
+		g_terrain.GetRowColumn(&(*nodeIt[2]), &node[2][0], &node[2][1]);
+
+		if (CheckStraightLine(node[0][0], node[0][1], node[2][0], node[2][1], false, node[1][0], node[1][1]))
+		{
+			_coordList.erase(nodeIt[1]);
+			nodeIt[1] = nodeIt[2];
+			nodeIt[2]++;
+		}
+		else
+		{
+			for (int i = 0; i < 3; ++i)
+			{
+				nodeIt[i]++;
+			}
+		}
+
+		if (nodeIt[2] == _coordList.end())
+			break;
+	}
+}
+
+D3DXVECTOR3 CalculateMidpoint(const D3DXVECTOR3& point1, const D3DXVECTOR3& point2)
+{
+	return D3DXVECTOR3(
+		(point1.x + point2.x) / 2.0f,
+		0,
+		(point1.z + point2.z) / 2.0f
+	);
+}
+
+
+
+
+void Movement::Smoothing(std::list<D3DXVECTOR3>& _coordList)
+{
+	std::list<D3DXVECTOR3> res = _coordList;
+	std::list<D3DXVECTOR3>::iterator it = _coordList.begin();
+	std::list<D3DXVECTOR3>::iterator it_res = res.begin();
+	//두 점 사이의 거리가 1.5이상 차이가 나면 새로운 점을 재귀적으로 넣음
+	using MyFunc = std::function<bool(std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator, std::list<D3DXVECTOR3>&)>;
+	MyFunc SmoothingDistance;
+	SmoothingDistance = [&SmoothingDistance](std::list<D3DXVECTOR3>::iterator& a, std::list<D3DXVECTOR3>::iterator b, std::list<D3DXVECTOR3>& list)
+	{
+		if (list.size() < 2 || a == list.end() || b == list.end())
+			return false;
+		float lenf = std::sqrt(((*a).x - (*b).x) * ((*a).x - (*b).x) + ((*a).z - (*b).z) * ((*a).z - (*b).z));
+		float standard = (1.f / g_terrain.GetWidth() / 2.f) * 3.f;
+		if (lenf > standard)
+		{
+			D3DXVECTOR3 mid = CalculateMidpoint(*a, *b);
+			std::list<D3DXVECTOR3>::iterator it_mid = list.insert(std::next(a), mid);
+			SmoothingDistance(a, it_mid, list);
+			SmoothingDistance(it_mid, b, list);
+		}
+		return true;
+	};
+
+	//3개의 점 미만이면 예외처리
+	SmoothingDistance(it_res, std::next(it_res), res);
+	if (res.size() >= 3)
+	{
+		//모든 웨이포인트 세트 사이에 3개의 새로운 포인트를 생성하고 평활화한 목록을 새로 만듦
+		using MyFunc2 = std::function<bool(
+			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator&, 
+			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator&, 
+			std::list<D3DXVECTOR3>::iterator, std::list<D3DXVECTOR3>&)>;
+		MyFunc2 CreateSmoothingList;
+		CreateSmoothingList = [&CreateSmoothingList](
+			std::list<D3DXVECTOR3>::iterator& a, std::list<D3DXVECTOR3>::iterator b, 
+			std::list<D3DXVECTOR3>::iterator& c, std::list<D3DXVECTOR3>::iterator& d, 
+			std::list<D3DXVECTOR3>::iterator& e, std::list<D3DXVECTOR3>& list)
+		{
+			//mid로 3개 만들고 catmull 하기 그리고 리스트업
+			//D3DXVec3CatmullRom(&(*it), &(*it), &(*it), &(*it), &(*it), 0.25);
+			return true;
+		};
+	}
+	_coordList.clear();
+	_coordList.assign(res.begin(), res.end());
+}
 
 bool Movement::ComputePath( int r, int c, bool newRequest )
 {
@@ -84,20 +220,8 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 	{
 		if (GetStraightlinePath()) // Straight
 		{
-			int max_x = curR <= r ? r : curR;
-			int max_y = curC <= c ? c : curC;
-			int min_x = curR >= r ? r : curR;
-			int min_y = curC >= c ? c : curC;
-			for (int x = min_x; x <= max_x; x++)
-			{
-				for (int y = min_y; y <= max_y; y++)
-				{
-					if (g_terrain.IsWall(x, y))
-					{
-						goto OutStraight;
-					}
-				}
-			}
+			if (!CheckStraightLine(curR, curC, r, c))
+				goto OutStraight;
 			//벽이 없어서 straight 가능
 			m_waypointList.clear();
 			m_waypointList.push_back(cur);
@@ -140,8 +264,6 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 
 	if( useAStar )
 	{
-		
-
 		//While (Open List is not empty) {
 		while (!open_list.empty())
 		{
@@ -216,6 +338,16 @@ bool Movement::ComputePath( int r, int c, bool newRequest )
 		}
 		m_waypointList.reverse();
 		
+		if (GetRubberbandPath())
+		{
+			Rubberbanding(m_waypointList);
+		}
+
+		if (GetSmoothPath())
+		{
+			Smoothing(m_waypointList);
+		}
+
 		//delete Nodes
 		while (!open_list.empty())
 		{
