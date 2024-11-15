@@ -180,21 +180,34 @@ void Movement::Smoothing(std::list<D3DXVECTOR3>& _coordList)
 	SmoothingDistance(it_res, std::next(it_res), res);
 	if (res.size() >= 3)
 	{
+
 		//모든 웨이포인트 세트 사이에 3개의 새로운 포인트를 생성하고 평활화한 목록을 새로 만듦
 		using MyFunc2 = std::function<bool(
-			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator&, 
-			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator&, 
-			std::list<D3DXVECTOR3>::iterator, std::list<D3DXVECTOR3>&)>;
+			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>&, std::list<D3DXVECTOR3>&)>;
 		MyFunc2 CreateSmoothingList;
 		CreateSmoothingList = [&CreateSmoothingList](
-			std::list<D3DXVECTOR3>::iterator& a, std::list<D3DXVECTOR3>::iterator b, 
-			std::list<D3DXVECTOR3>::iterator& c, std::list<D3DXVECTOR3>::iterator& d, 
-			std::list<D3DXVECTOR3>::iterator& e, std::list<D3DXVECTOR3>& list)
+			std::list<D3DXVECTOR3>::iterator& it, std::list<D3DXVECTOR3>& list, std::list<D3DXVECTOR3>& ref_list)
 		{
+			if (it == list.begin())
+			{
+
+			}
+			if ()
+			{
+
+			}
 			//mid로 3개 만들고 catmull 하기 그리고 리스트업
 			//D3DXVec3CatmullRom(&(*it), &(*it), &(*it), &(*it), &(*it), 0.25);
+			D3DXVECTOR3 mid = CalculateMidpoint(*a, *b);
+			std::list<D3DXVECTOR3>::iterator it_mid = list.insert(std::next(a), mid);
+			D3DXVECTOR3 mid_f = CalculateMidpoint(*a, *it_mid);
+			std::list<D3DXVECTOR3>::iterator it_mid_f = list.insert(std::next(a), mid);
+			D3DXVECTOR3 mid_b = CalculateMidpoint(*it_mid, *b);
+			std::list<D3DXVECTOR3>::iterator it_mid_b = list.insert(std::next(a), mid);
+			CreateSmoothingList();
 			return true;
 		};
+		CreateSmoothingList(res.begin(), res);
 	}
 	_coordList.clear();
 	_coordList.assign(res.begin(), res.end());
