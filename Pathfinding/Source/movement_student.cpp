@@ -149,68 +149,62 @@ D3DXVECTOR3 CalculateMidpoint(const D3DXVECTOR3& point1, const D3DXVECTOR3& poin
 	);
 }
 
-
-
-
 void Movement::Smoothing(std::list<D3DXVECTOR3>& _coordList)
 {
+	if (_coordList.size() < 2) return;
+
 	std::list<D3DXVECTOR3> res = _coordList;
-	std::list<D3DXVECTOR3>::iterator it = _coordList.begin();
-	std::list<D3DXVECTOR3>::iterator it_res = res.begin();
-	//두 점 사이의 거리가 1.5이상 차이가 나면 새로운 점을 재귀적으로 넣음
-	using MyFunc = std::function<bool(std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>::iterator, std::list<D3DXVECTOR3>&)>;
-	MyFunc SmoothingDistance;
-	SmoothingDistance = [&SmoothingDistance](std::list<D3DXVECTOR3>::iterator& a, std::list<D3DXVECTOR3>::iterator b, std::list<D3DXVECTOR3>& list)
-	{
-		if (list.size() < 2 || a == list.end() || b == list.end())
-			return false;
-		float lenf = std::sqrt(((*a).x - (*b).x) * ((*a).x - (*b).x) + ((*a).z - (*b).z) * ((*a).z - (*b).z));
-		float standard = (1.f / g_terrain.GetWidth() / 2.f) * 3.f;
-		if (lenf > standard)
-		{
-			D3DXVECTOR3 mid = CalculateMidpoint(*a, *b);
-			std::list<D3DXVECTOR3>::iterator it_mid = list.insert(std::next(a), mid);
-			SmoothingDistance(a, it_mid, list);
-			SmoothingDistance(it_mid, b, list);
+
+	// 두 점 사이의 거리가 기준값 이상이면 중간점을 추가
+	const float standard = (1.f / g_terrain.GetWidth() / 2.f) * 3.f;
+	auto SmoothingDistance = [&standard](std::list<D3DXVECTOR3>& list) {
+		for (auto it = list.begin(); std::next(it) != list.end();) {
+			auto nextIt = std::next(it);
+			float lenf = std::sqrt(((*it).x - (*nextIt).x) * ((*it).x - (*nextIt).x) + ((*it).z - (*nextIt).z) * ((*it).z - (*nextIt).z));
+
+			if (lenf > standard) {
+				D3DXVECTOR3 mid = CalculateMidpoint(*it, *nextIt);
+				list.insert(nextIt, mid); // 중간점 삽입
+			}
+			else {
+				++it; // 다음으로 이동
+			}
 		}
-		return true;
 	};
 
+	SmoothingDistance(res);
 	//3개의 점 미만이면 예외처리
-	SmoothingDistance(it_res, std::next(it_res), res);
-	if (res.size() >= 3)
-	{
+	if (res.size() >= 3) {
+		std::list<D3DXVECTOR3> res2;
+		auto CreateSmoothingList = [](std::list<D3DXVECTOR3>& src, std::list<D3DXVECTOR3>& dest) {
+			for (auto it = src.begin(); std::next(it) != src.end(); ++it) {
+				auto nextIt = std::next(it);
 
-		//모든 웨이포인트 세트 사이에 3개의 새로운 포인트를 생성하고 평활화한 목록을 새로 만듦
-		using MyFunc2 = std::function<bool(
-			std::list<D3DXVECTOR3>::iterator&, std::list<D3DXVECTOR3>&, std::list<D3DXVECTOR3>&)>;
-		MyFunc2 CreateSmoothingList;
-		CreateSmoothingList = [&CreateSmoothingList](
-			std::list<D3DXVECTOR3>::iterator& it, std::list<D3DXVECTOR3>& list, std::list<D3DXVECTOR3>& ref_list)
-		{
-			if (it == list.begin())
-			{
+				// Catmull-Rom 스플라인 점 계산
+				D3DXVECTOR3 mid = CalculateMidpoint(*it, *nextIt);
+				D3DXVECTOR3 mid_f = CalculateMidpoint(*it, mid);
+				D3DXVECTOR3 mid_b = CalculateMidpoint(mid, *nextIt);
 
+				dest.push_back(*it);
+				dest.push_back(mid_f);
+				dest.push_back(mid);
+				dest.push_back(mid_b);
+
+				if (std::next(nextIt) == src.end()) {
+					dest.push_back(*nextIt); // 마지막 점 추가
+				}
 			}
-			if ()
-			{
-
-			}
-			//mid로 3개 만들고 catmull 하기 그리고 리스트업
-			//D3DXVec3CatmullRom(&(*it), &(*it), &(*it), &(*it), &(*it), 0.25);
-			D3DXVECTOR3 mid = CalculateMidpoint(*a, *b);
-			std::list<D3DXVECTOR3>::iterator it_mid = list.insert(std::next(a), mid);
-			D3DXVECTOR3 mid_f = CalculateMidpoint(*a, *it_mid);
-			std::list<D3DXVECTOR3>::iterator it_mid_f = list.insert(std::next(a), mid);
-			D3DXVECTOR3 mid_b = CalculateMidpoint(*it_mid, *b);
-			std::list<D3DXVECTOR3>::iterator it_mid_b = list.insert(std::next(a), mid);
-			CreateSmoothingList();
-			return true;
 		};
-		CreateSmoothingList(res.begin(), res);
+
+		CreateSmoothingList(res, res2);
+
+		_coordList.clear();
+		_coordList.assign(res2.begin(), res2.end());
 	}
-	_coordList.clear();
-	_coordList.assign(res.begin(), res.end());
+	else {
+		_coordList.clear();
+		_coordList.assign(res.begin(), res.end());
+	}
 }
 
 bool Movement::ComputePath( int r, int c, bool newRequest )
