@@ -178,13 +178,18 @@ void Movement::Smoothing(std::list<D3DXVECTOR3>& _coordList)
 		std::list<D3DXVECTOR3> res2;
 		auto CreateSmoothingList = [](std::list<D3DXVECTOR3>& src, std::list<D3DXVECTOR3>& dest) {
 			for (auto it = src.begin(); std::next(it) != src.end(); ++it) {
-				auto nextIt = std::next(it);
+				
+				WaypointList::iterator privIt = (it == src.begin() ? it : std::prev(it));
+				WaypointList::iterator nextIt = std::next(it);
+				WaypointList::iterator nextIt_next = (std::next(nextIt) == src.end() ? nextIt : std::next(nextIt));
 
 				// Catmull-Rom 스플라인 점 계산
 				D3DXVECTOR3 mid = CalculateMidpoint(*it, *nextIt);
 				D3DXVECTOR3 mid_f = CalculateMidpoint(*it, mid);
 				D3DXVECTOR3 mid_b = CalculateMidpoint(mid, *nextIt);
-
+				D3DXVec3CatmullRom(&mid_f, &(*privIt), &(*it), &(*nextIt), &(*nextIt_next), 0.25f);
+				D3DXVec3CatmullRom(&mid  , &(*privIt), &(*it), &(*nextIt), &(*nextIt_next), 0.50f);
+				D3DXVec3CatmullRom(&mid_b, &(*privIt), &(*it), &(*nextIt), &(*nextIt_next), 0.75f);
 				dest.push_back(*it);
 				dest.push_back(mid_f);
 				dest.push_back(mid);
